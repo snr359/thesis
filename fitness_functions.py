@@ -1,0 +1,78 @@
+# This is an implementation of CoCO's fitness functions as defined in
+# http://coco.lri.fr/downloads/download15.01/bbobdocnoisyfunctions.pdf
+
+import random
+import sys
+import math
+import scipy.optimize
+
+
+# PRIMARY FUNCTION
+def get_fitness(x, function_name):
+    # returns the adjusted fitness by running the genome x on the funciton indicated by function_name
+    # always returns a fitness directly related to solution quality (i.e. never inversely related)
+    if function_name == 'rosenbrock_moderate_uniform_noise':
+        val = rosenbrock_moderate_uniform_noise(x)
+        fitness = -1 * val
+        return fitness
+    elif function_name == 'rastrigin_moderate_uniform_noise':
+        val = rastrigin_moderate_uniform_noise(x)
+        fitness = -1 * val
+        return fitness
+
+    # base case: function_name not found
+    else:
+        print('ERROR: function name {0} not found. Defaulting to rosenbrock_moderate_uniform_noise'.format(function_name))
+        val = rosenbrock_moderate_uniform_noise(x)
+        fitness = -1 * val
+        return fitness
+
+
+# NOISY FUNCTIONS
+
+def rosenbrock_moderate_uniform_noise(x, f_opt=0):
+    D = len(x)
+    alpha = 0.01 * (0.49 + 1/D)
+    beta = 0.01
+    # return uniform_noise(rosenbrock(x, f_opt), alpha, beta) + function_penalty(x)
+    return uniform_noise(rosenbrock(x, f_opt), alpha, beta)
+
+def rastrigin_moderate_uniform_noise(x):
+    D = len(x)
+    alpha = 0.01 * (0.49 + 1/D)
+    beta = 0.01
+    return uniform_noise(rastrigin(x), alpha, beta)
+
+# UTILITIES
+
+def function_penalty(x):
+    return 100 * sum(max(0, abs(xi) - 5)**2 for xi in x)
+
+# NOISE FUNCTIONS
+
+def uniform_noise(f, alpha, beta):
+    # The function must be below this threshold to be returned undisturbed
+    disturbance_threshold = 10**-8
+
+    if f >= disturbance_threshold:
+        eps = sys.float_info.epsilon
+        f_noisy = f * random.random()**beta * max(1, (10**9 / (f + eps)) ** (alpha * random.random()))
+        return f_noisy + 1.01**disturbance_threshold
+    else:
+        return f
+
+
+# BASE FUNCTIONS
+
+def rosenbrock(x, f_opt=0):
+    return scipy.optimize.rosen(x) + f_opt
+
+def rastrigin(x, a=10):
+    return a*len(x) + sum(xi**2 - a*math.cos(2*math.pi*xi) for xi in x)
+
+
+
+# TESTING MAIN
+
+if __name__ == '__main__':
+    print(rosenbrock_moderate_uniform_noise([1]*5))
