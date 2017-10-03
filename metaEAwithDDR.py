@@ -28,6 +28,23 @@ class popi:
 
         self.parentChance = None
         self.survivalChance = None
+
+    def recombine(self, parent2):
+        newChild = popi()
+        geneLength = len(self.genotype)
+        newChild.genotype = np.zeros(geneLength)
+        for i in range(geneLength):
+            if random.random() > 0.5:
+                newChild.genotype[i] = self.genotype[i]
+            else:
+                newChild.genotype[i] = parent2.genotype[i]
+        return newChild
+
+    def mutate(self):
+        geneLength = len(self.genotype)
+        for i in range(geneLength):
+            self.genotype[i] += random.triangular(-1, 1, 0)
+        
     def randomize(self, initialRange, dim):
         self.genotype = (np.random.rand(dim)- 0.5) * initialRange
 
@@ -48,6 +65,7 @@ class subPopulation:
         self.survivalSelectionFunction = None
         self.averageFitnessDict = dict()
         self.bestFitnessDict = dict()
+        
     def randomizeNum(self, num, initialRange, dim):
         # initializes and randomizes a number of population individuals
         self.population = []
@@ -55,12 +73,94 @@ class subPopulation:
             newPopi = popi()
             newPopi.randomize(initialRange, dim)
             self.population.append(newPopi)
+            
     def evaluateAll(self, populationToEval):
         function_name = config.get('experiment', 'fitness function')
         genotypes = list(p.genotype for p in populationToEval)
         fitnessValues = list(ff.get_fitness(g, function_name) for g in genotypes)
         for i,p in enumerate(populationToEval):
             p.fitness = fitnessValues[i]
+
+    def updateFitnessStats(self):
+        # Updates the fitnessRank and fitnessProportion of the population members
+        self.population.sort(key=lambda p: p.fitness)
+
+        for i, p in enumerate(self.population):
+            p.fitnessRank = i
+
+        minFitness = min(p.fitness for p in self.population)
+        if minFitness < 0:
+            fitnessSum = sum((p.fitness + minFitness) for p in self.population)
+            for p in self.population:
+                p.fitnessProportion = (p.fitness + minFitness) / fitnessSum
+        else:
+            fitnessSum = sum(p.fitness for p in self.population)
+            for p in self.population:
+                p.fitnessProportion = p.fitness / fitnessSum
+
+    def assignParentSelectionChances(self):
+        self.updateFitnessStats()
+        for p in self.population:
+            terminalValues = {'fitness': p.fitness, 'fitnessProportion': p.fitnessProportion, 'fitnessRank': p.fitnessRank, 'populationSize': len(self.population)}
+            p.parentChance = self.parentSelectionFunction.get(terminalValues)
+
+        # normalize if negative chances are present
+        minChance = min(p.parentChance for p in self.population)
+        if minChance < 0:
+            for p in self.population:
+                p.parentChance -= minChance
+
+    def assignSurvivalSelectionChances(self):
+        self.updateFitnessStats()
+        for p in self.population:
+            terminalValues = {'fitness': p.fitness, 'fitnessProportion': p.fitnessProportion, 'fitnessRank': p.fitnessRank, 'populationSize': len(self.population)}
+            p.survivalChance = self.survivalSelectionFunction.get(terminalValues)
+
+        # normalize if negative chances are present
+        minChance = min(p.survivalChance for p in self.population)
+        if minChance < 0:
+            for p in self.population:
+                p.survivalChance -= minChance
+
+    def parentSelection(self):
+        selected = None
+        totalChance = sum(p.parentChance for p in self.population)
+        selectionNum = random.uniform(0, totalChance)
+        for p in self.population:
+            if selectionNum <= p.parentChance:
+                selected = p
+                break
+            else:
+                selectionNum -= p.parentChance
+
+        if selected is None:
+            print("ERROR: Overrun parent selection with " + str(selectionNum) + " remaining")
+        return selected
+
+    def survivalSelection(self):
+        selected = None
+        selectedIndex = None
+        totalChance = sum(p.survivalChance for p in self.population)
+        selectionNum = random.uniform(0, totalChance)
+        for i, p in enumerate(self.population):
+            if selectionNum <= p.survivalChance:
+                selected = p
+                selectedIndex = i
+                break
+            else:
+                selectionNum -= p.survivalChance
+
+        if selected is None:
+            print("ERROR: Overrun survival selection with " + str(selectionNum) + " remaining")
+        return selected, selectedIndex
+
+    def recombine(self, parent2, recombinationDecider):
+        # recombine the parent and survival selection functions of two subpopulations and return a new child
+        newChild = subPopulation()
+        newChild.parentSelectionFunction = self.parentSelectionFunction.recombine(parent2.parentSelectionFunction, recombinationDecider)
+        newChild.survivalSelectionFunction = self.survivalSelectionFunction.recombine(parent2.survivalSelectionFunction, recombinationDecider)
+        return newChild
+
     def runEvolution(self):
         # runs a full EA, using the assigned parent and survival selection functions
         # the evolution parameters are read from the configuration file
@@ -90,13 +190,13 @@ class subPopulation:
         while evals < maxEvals:
             # parent selection/recombination
             children = []
-            assignParentSelectionChances(self.population, self.parentSelectionFunction)
+            self.assignParentSelectionChances()
             while len(children) < lam:
-                parent1 = parentSelection(self.population)
-                parent2 = parentSelection(self.population)
-                newChild = recombinePop(parent1, parent2)
+                parent1 = self.parentSelection()
+                parent2 = self.parentSelection()
+                newChild = parent1.recombine(parent2)
                 if random.random() < mutationRate:
-                    mutatePop(newChild)
+                    newChild.mutate()
                 children.append(newChild)
             self.evaluateAll(children)
             evals += lam
@@ -112,9 +212,9 @@ class subPopulation:
 
             # survival selection
             survivors = []
-            assignSurvivalSelectionChances(self.population, self.survivalSelectionFunction)
+            self.assignSurvivalSelectionChances()
             while len(survivors) < mu:
-                nextSurvivor, nextSurvivorIndex = survivalSelection(self.population)
+                nextSurvivor, nextSurvivorIndex = self.survivalSelection()
                 survivors.append(nextSurvivor)
                 self.population.pop(nextSurvivorIndex)
             self.population = survivors
@@ -134,6 +234,19 @@ class GPNode:
         self.data = None
         self.children = None
         self.parent = None
+
+    def limitedFac(self, nInput, limit=50):
+        # a limited factorial function, whose max return value is limit!
+        n = min(abs(int(nInput)), limit)
+        return math.factorial(n)
+
+    def combo(self, n, k):
+        # computes n-choose-k combination
+        if n - k < 0:
+            return 0
+        else:
+            return self.limitedFac(n) / (self.limitedFac(k) * self.limitedFac(n - k))
+
     def grow(self, depthLimit, parent):
         if depthLimit == 0:
             self.operation = random.choice(GPNode.numericTerminals + GPNode.dataTerminals)
@@ -164,7 +277,7 @@ class GPNode:
             return self.children[0].get(terminalValues) / denom
 
         elif self.operation == 'combo':
-            return combo(self.children[0].get(terminalValues), self.children[1].get(terminalValues))
+            return self.combo(self.children[0].get(terminalValues), self.children[1].get(terminalValues))
 
         elif self.operation in GPNode.dataTerminals:
             return terminalValues[self.operation]
@@ -211,14 +324,45 @@ class GPTree:
     def __init__(self):
         self.root = None
         self.fitness = None
+
+    def recombine(self, parent2, recombinationDecider):
+        # recombines two GPTrees and returns a new child
+
+        # copy the first parent
+        newChild = copy.deepcopy(self)
+        newChild.fitness = None
+
+        # use a recombination decider if one is present, pick randomly otherwise
+        if recombinationDecider is not None:
+            # select a point to insert a tree from the second parent
+            insertionPoint = recombinationDecider.selectRecombinationNode(newChild)
+
+            # copy a random tree from the second parent
+            replacementTree = copy.deepcopy(recombinationDecider.selectRecombinationNode(parent2))
+
+        else:
+            # select a point to insert a tree from the second parent
+            insertionPoint = random.choice(newChild.getAllNodes())
+
+            # copy a tree from the second parent
+            replacementTree = copy.deepcopy(random.choice(parent2.getAllNodes()))
+
+        # insert the tree
+        newChild.replaceNode(insertionPoint, replacementTree)
+
+        return newChild
+        
     def get(self, terminalValues):
         return self.root.get(terminalValues)
+    
     def getAllNodes(self):
         result = self.root.getAllNodes()
         return result
+    
     def getAllNodesDepthLimited(self, depthLimit):
         result = self.root.getAllNodesDepthLimited(depthLimit)
         return result
+    
     def replaceNode(self, nodeToReplace, replacementNode):
         # replaces node in GPTree. Uses the replacementNode directly, not a copy of it
         if nodeToReplace not in self.getAllNodes():
@@ -301,132 +445,6 @@ class GPRecombinationDecider:
         result = random.choice(tree.getAllNodesDepthLimited(self.recombinationDepth))
         return result
 
-def limitedFac(nInput, limit=50):
-    # a limited factorial function, whose max return value is limit!
-    n = min(abs(int(nInput)), limit)
-    return math.factorial(n)
-
-def combo(n, k):
-    # computes n-choose-k combination
-    if n-k < 0:
-        return 0
-    else:
-        return limitedFac(n) / (limitedFac(k) * limitedFac(n-k))
-
-def parentSelection(population):
-    selected = None
-    totalChance = sum(p.parentChance for p in population)
-    selectionNum = random.uniform(0,totalChance)
-    for p in population:
-        if selectionNum <= p.parentChance:
-            selected = p
-            break
-        else:
-            selectionNum -= p.parentChance
-
-    if selected is None:
-        print("ERROR: Overrun parent selection with " + str(selectionNum) + " remaining")
-    return selected
-
-def survivalSelection(population):
-    selected = None
-    selectedIndex = None
-    totalChance = sum(p.survivalChance for p in population)
-    selectionNum = random.uniform(0,totalChance)
-    for i, p in enumerate(population):
-        if selectionNum <= p.survivalChance:
-            selected = p
-            selectedIndex = i
-            break
-        else:
-            selectionNum -= p.survivalChance
-
-
-    if selected is None:
-        print("ERROR: Overrun survival selection with " + str(selectionNum) + " remaining")
-    return (selected, selectedIndex)
-
-def recombinePop(parent1, parent2):
-    newChild = popi()
-    geneLength = len(parent1.genotype)
-    newChild.genotype = np.zeros(geneLength)
-    for i in range(geneLength):
-        if random.random() > 0.5:
-            newChild.genotype[i] = parent1.genotype[i]
-        else:
-            newChild.genotype[i] = parent2.genotype[i]
-    return newChild
-
-def mutatePop(child):
-    geneLength = len(child.genotype)
-    for i in range(geneLength):
-        child.genotype[i] += random.triangular(-1, 1, 0)
-
-def recombineGP(parent1, parent2, recombinationDecider):
-    # recombines two GPTrees and returns a new child
-
-    # copy the first parent
-    newChild = copy.deepcopy(parent1)
-    newChild.fitness = None
-
-    # use a recombination decider if one is present, pick randomly otherwise
-    if recombinationDecider is not None:
-        # select a point to insert a tree from the second parent
-        insertionPoint = recombinationDecider.selectRecombinationNode(newChild)
-
-        # copy a random tree from the second parent
-        replacementTree = copy.deepcopy(recombinationDecider.selectRecombinationNode(parent2))
-
-    else:
-        # select a point to insert a tree from the second parent
-        insertionPoint = random.choice(newChild.getAllNodes())
-
-        # copy a tree from the second parent
-        replacementTree = copy.deepcopy(random.choice(parent2.getAllNodes()))
-
-    # insert the tree
-    newChild.replaceNode(insertionPoint, replacementTree)
-
-    return newChild
-
-def recombineSubPop(parent1, parent2, recombinationDecider):
-    # recombine the parent and survival selection functions of two subpopulations and return a new child
-    newChild = subPopulation()
-    newChild.parentSelectionFunction = recombineGP(parent1.parentSelectionFunction, parent2.parentSelectionFunction, recombinationDecider)
-    newChild.survivalSelectionFunction = recombineGP(parent1.survivalSelectionFunction, parent2.survivalSelectionFunction, recombinationDecider)
-    return newChild
-
-def computeFitnessMeasures(population):
-    fitnessSum = sum(p.fitness for p in population)
-    population.sort(key=lambda p: p.fitness)
-    for i, p in enumerate(population):
-        p.fitnessRank = i
-        p.fitnessProportion = float(p.fitness) / fitnessSum
-
-def assignParentSelectionChances(population, probabilityFunction):
-    computeFitnessMeasures(population)
-    for p in population:
-        terminalValues = {'fitness': p.fitness, 'fitnessProportion': p.fitnessProportion, 'fitnessRank': p.fitnessRank, 'populationSize': len(population)}
-        p.parentChance = probabilityFunction.get(terminalValues)
-
-    # normalize if negative chances are present
-    minChance = min(p.parentChance for p in population)
-    if minChance < 0:
-        for p in population:
-            p.parentChance -= minChance
-
-def assignSurvivalSelectionChances(population, probabilityFunction):
-    computeFitnessMeasures(population)
-    for p in population:
-        terminalValues = {'fitness': p.fitness, 'fitnessProportion': p.fitnessProportion, 'fitnessRank': p.fitnessRank, 'populationSize': len(population)}
-        p.survivalChance = probabilityFunction.get(terminalValues)
-
-    # normalize if negative chances are present
-    minChance = min(p.survivalChance for p in population)
-    if minChance < 0:
-        for p in population:
-            p.survivalChance -= minChance
-
 def metaEAoneRun(runNum):
     # runs the meta EA for one run
 
@@ -481,7 +499,7 @@ def metaEAoneRun(runNum):
         while len(children) < GPLambda:
             parent1 = max(random.sample(GPPopulation, GPKTournamentK), key=lambda p: p.bestFitness)
             parent2 = max(random.sample(GPPopulation, GPKTournamentK), key=lambda p: p.bestFitness)
-            newChild = recombineSubPop(parent1, parent2, recombinationDecider)
+            newChild = parent1.recombine(parent2, recombinationDecider)
             newChild.runEvolution()
             GPEvals += 1
             children.append(newChild)
@@ -675,7 +693,6 @@ def generateDefaultConfig(filePath):
 
     with open(filePath, 'w') as file:
         config.write(file)
-
 
 if __name__ == "__main__":
 

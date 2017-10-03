@@ -102,3 +102,6 @@ ENV/
 
 # PyCharm .idea
 .idea/
+
+# Results
+results/
