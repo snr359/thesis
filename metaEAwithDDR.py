@@ -236,8 +236,8 @@ class subPopulation:
 class GPNode:
     numericTerminals = ['constant']
     dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'populationSize']
-    nonTerminals = ['+', '-', '*', '/', 'combo']
-    childCount = {'+': 2, '-': 2, '*': 2, '/': 2, 'combo': 2}
+    nonTerminals = ['+', '-', '*', '/', 'combo', 'step']
+    childCount = {'+': 2, '-': 2, '*': 2, '/': 2, 'combo': 2, 'step': 2}
 
     def __init__(self):
         self.operation = None
@@ -288,6 +288,12 @@ class GPNode:
 
         elif self.operation == 'combo':
             return self.combo(self.children[0].get(terminalValues), self.children[1].get(terminalValues))
+
+        elif self.operation == 'step':
+            if self.children[0].get(terminalValues) >= self.children[1].get(terminalValues):
+                return 1
+            else:
+                return 0
 
         elif self.operation in GPNode.dataTerminals:
             return terminalValues[self.operation]
