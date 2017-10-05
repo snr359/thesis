@@ -173,6 +173,9 @@ class subPopulation:
         mutationRate = config.getfloat('baseEA', 'base EA mutation rate')
         dim = config.getint('experiment', 'dimensionality')
 
+        convergenceTermination = config.getboolean('baseEA', 'convergence termination')
+        convergenceGens = config.getint('baseEA', 'convergence generations')
+
         # initialization
         self.randomizeNum(mu, initialRange, dim)
         self.evaluateAll(self.population)
@@ -204,12 +207,6 @@ class subPopulation:
             # population merging
             self.population += children
 
-            # calculate status
-            self.bestFitness = max(p.fitness for p in self.population)
-            self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
-            self.averageFitnessDict[evals] = self.averageFitness
-            self.bestFitnessDict[evals] = self.bestFitness
-
             # survival selection
             survivors = []
             self.assignSurvivalSelectionChances()
@@ -219,9 +216,22 @@ class subPopulation:
                 self.population.pop(nextSurvivorIndex)
             self.population = survivors
 
-        # calculate final stats
-        self.bestFitness = max(p.fitness for p in self.population)
-        self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
+            # calculate status
+            self.bestFitness = max(p.fitness for p in self.population)
+            self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
+            self.averageFitnessDict[evals] = self.averageFitness
+            self.bestFitnessDict[evals] = self.bestFitness
+
+            # check for early termination
+            if convergenceTermination and len(self.bestFitnessDict) >= convergenceGens:
+                bestEvalsWindow = sorted(self.bestFitnessDict.keys())[-convergenceGens:]
+                bestEvals = list(self.bestFitnessDict[e] for e in bestEvalsWindow)
+                if all(b == bestEvals[0] for b in bestEvals):
+                    # terminate early, autofilling average and best fitness dictionaries
+                    while evals < maxEvals:
+                        self.averageFitnessDict[evals] = self.averageFitness
+                        self.bestFitnessDict[evals] = self.bestFitness
+                        evals += lam
 
 class GPNode:
     numericTerminals = ['constant']
@@ -688,7 +698,9 @@ def generateDefaultConfig(filePath):
         'base EA mu': 100,
         'base EA lambda': 100,
         'base EA maximum fitness evaluations': 3000,
-        'base EA mutation rate': 0.05
+        'base EA mutation rate': 0.05,
+        'convergence termination': True,
+        'convergence generations': 5
     }
 
     with open(filePath, 'w') as file:
