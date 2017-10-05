@@ -643,12 +643,15 @@ def metaEAWithDDR(resultsPath):
     GPLambda = config.getint('metaEA', 'metaEA lambda')
     maxGPEvals = config.getint('metaEA', 'metaEA maximum fitness evaluations')
 
-    usingMultiprocessing = False
+    numProcesses = config.getint('metaEA', 'processes')
 
-    if usingMultiprocessing:
+    if numProcesses > 1 or numProcesses == -1:
 
         # create the process pool to run the metaEA runs
-        processPool = multiprocessing.Pool()
+        if numProcesses > 1:
+            processPool = multiprocessing.Pool(processes=numProcesses)
+        else:
+            processPool = multiprocessing.Pool()
 
         # run the metaEA runs
         results = processPool.map(metaEAoneRun, range(numMetaRuns))
@@ -741,7 +744,8 @@ def generateDefaultConfig(filePath):
         'metaEA maximum fitness evaluations': 200,
         'metaEA k-tournament size': 8,
         'metaEA GP tree initialization depth limit': 3,
-        'base EA runs': 30
+        'base EA runs': 30,
+        'processes': -1
     }
     config['baseEA'] = {
         'initialization range': 10,
