@@ -25,9 +25,11 @@ class popi:
         self.fitness = None
         self.fitnessProportion = None
         self.fitnessRank = None  # higher rank = higher fitness
+        self.biodiversity = None
 
         self.parentChance = None
         self.survivalChance = None
+
 
     def recombine(self, parent2):
         newChild = popi()
@@ -81,7 +83,7 @@ class subPopulation:
         for i,p in enumerate(populationToEval):
             p.fitness = fitnessValues[i]
 
-    def updateFitnessStats(self):
+    def updateStats(self):
         # Updates the fitnessRank and fitnessProportion of the population members
         self.population.sort(key=lambda p: p.fitness)
 
@@ -98,10 +100,26 @@ class subPopulation:
             for p in self.population:
                 p.fitnessProportion = p.fitness / fitnessSum
 
-    def assignParentSelectionChances(self):
-        self.updateFitnessStats()
+        # biodiversity
+        genomeLength = len(self.population[0].genotype)
+        averageGenome = list(mean(p.genotype[i] for p in self.population) for i in range(genomeLength))
         for p in self.population:
-            terminalValues = {'fitness': p.fitness, 'fitnessProportion': p.fitnessProportion, 'fitnessRank': p.fitnessRank, 'populationSize': len(self.population)}
+            p.biodiversity = math.sqrt(sum((p.genotype[i] - averageGenome[i])**2 for i in range(genomeLength)))
+
+        # normalize
+        maxBiodiversity = max(p.biodiversity for p in self.population)
+        if maxBiodiversity != 0:
+            for p in self.population:
+                p.biodiversity /= maxBiodiversity
+
+    def assignParentSelectionChances(self):
+        self.updateStats()
+        for p in self.population:
+            terminalValues = {'fitness': p.fitness,
+                              'fitnessProportion': p.fitnessProportion,
+                              'fitnessRank': p.fitnessRank,
+                              'biodiversity': p.biodiversity,
+                              'populationSize': len(self.population)}
             p.parentChance = self.parentSelectionFunction.get(terminalValues)
 
         # normalize if negative chances are present
@@ -111,9 +129,13 @@ class subPopulation:
                 p.parentChance -= minChance
 
     def assignSurvivalSelectionChances(self):
-        self.updateFitnessStats()
+        self.updateStats()
         for p in self.population:
-            terminalValues = {'fitness': p.fitness, 'fitnessProportion': p.fitnessProportion, 'fitnessRank': p.fitnessRank, 'populationSize': len(self.population)}
+            terminalValues = {'fitness': p.fitness,
+                              'fitnessProportion': p.fitnessProportion,
+                              'fitnessRank': p.fitnessRank,
+                              'biodiversity': p.biodiversity,
+                              'populationSize': len(self.population)}
             p.survivalChance = self.survivalSelectionFunction.get(terminalValues)
 
         # normalize if negative chances are present
@@ -235,7 +257,7 @@ class subPopulation:
 
 class GPNode:
     numericTerminals = ['constant']
-    dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'populationSize']
+    dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'biodiversity', 'populationSize']
     nonTerminals = ['+', '-', '*', '/', 'combo', 'step']
     childCount = {'+': 2, '-': 2, '*': 2, '/': 2, 'combo': 2, 'step': 2}
 
