@@ -69,6 +69,7 @@ class subPopulation:
         self.survivalSelectionFunction = None
         self.averageFitnessDict = dict()
         self.bestFitnessDict = dict()
+        self.evals = None
         
     def randomizeNum(self, num, initialRange, dim):
         # initializes and randomizes a number of population individuals
@@ -121,7 +122,9 @@ class subPopulation:
                               'fitnessProportion': p.fitnessProportion,
                               'fitnessRank': p.fitnessRank,
                               'biodiversity': p.biodiversity,
-                              'populationSize': len(self.population)}
+                              'populationSize': len(self.population),
+                              'evaluations': self.evals}
+
             if p.parentsFitness is not None:
                 terminalValues['parent1fitness'] = p.parentsFitness[0]
                 terminalValues['parent2fitness'] = p.parentsFitness[1]
@@ -143,7 +146,9 @@ class subPopulation:
                               'fitnessProportion': p.fitnessProportion,
                               'fitnessRank': p.fitnessRank,
                               'biodiversity': p.biodiversity,
-                              'populationSize': len(self.population)}
+                              'populationSize': len(self.population),
+                              'evaluations': self.evals}
+
             if p.parentsFitness is not None:
                 terminalValues['parent1fitness'] = p.parentsFitness[0]
                 terminalValues['parent2fitness'] = p.parentsFitness[1]
@@ -215,18 +220,18 @@ class subPopulation:
         # initialization
         self.randomizeNum(mu, initialRange, dim)
         self.evaluateAll(self.population)
-        evals = mu
+        self.evals = mu
         self.averageFitnessDict = dict()
         self.bestFitnessDict = dict()
 
         self.bestFitness = max(p.fitness for p in self.population)
         self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
 
-        self.averageFitnessDict[evals] = self.averageFitness
-        self.bestFitnessDict[evals] = self.bestFitness
+        self.averageFitnessDict[self.evals] = self.averageFitness
+        self.bestFitnessDict[self.evals] = self.bestFitness
 
         # EA loop
-        while evals < maxEvals:
+        while self.evals < maxEvals:
             # parent selection/recombination
             children = []
             self.assignParentSelectionChances()
@@ -238,7 +243,7 @@ class subPopulation:
                     newChild.mutate()
                 children.append(newChild)
             self.evaluateAll(children)
-            evals += lam
+            self.evals += lam
 
             # population merging
             self.population += children
@@ -255,8 +260,8 @@ class subPopulation:
             # calculate status
             self.bestFitness = max(p.fitness for p in self.population)
             self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
-            self.averageFitnessDict[evals] = self.averageFitness
-            self.bestFitnessDict[evals] = self.bestFitness
+            self.averageFitnessDict[self.evals] = self.averageFitness
+            self.bestFitnessDict[self.evals] = self.bestFitness
 
             # check for early termination
             if convergenceTermination and len(self.bestFitnessDict) >= convergenceGens:
@@ -264,14 +269,14 @@ class subPopulation:
                 bestEvals = list(self.bestFitnessDict[e] for e in bestEvalsWindow)
                 if all(b == bestEvals[0] for b in bestEvals):
                     # terminate early, autofilling average and best fitness dictionaries
-                    while evals < maxEvals:
-                        self.averageFitnessDict[evals] = self.averageFitness
-                        self.bestFitnessDict[evals] = self.bestFitness
-                        evals += lam
+                    while self.evals < maxEvals:
+                        self.averageFitnessDict[self.evals] = self.averageFitness
+                        self.bestFitnessDict[self.evals] = self.bestFitness
+                        self.evals += lam
 
 class GPNode:
     numericTerminals = ['constant']
-    dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'biodiversity', 'populationSize', 'parent1fitness', 'parent2fitness']
+    dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'biodiversity', 'populationSize', 'parent1fitness', 'parent2fitness', 'evaluations']
     nonTerminals = ['+', '-', '*', '/', 'combo', 'step']
     childCount = {'+': 2, '-': 2, '*': 2, '/': 2, 'combo': 2, 'step': 2}
 
@@ -635,7 +640,7 @@ def metaEAWithDDR(resultsPath):
     GPLambda = config.getint('metaEA', 'metaEA lambda')
     maxGPEvals = config.getint('metaEA', 'metaEA maximum fitness evaluations')
 
-    usingMultiprocessing = True
+    usingMultiprocessing = False
 
     if usingMultiprocessing:
 
