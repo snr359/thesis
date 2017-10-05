@@ -26,6 +26,7 @@ class popi:
         self.fitnessProportion = None
         self.fitnessRank = None  # higher rank = higher fitness
         self.biodiversity = None
+        self.parentsFitness = None
 
         self.parentChance = None
         self.survivalChance = None
@@ -40,6 +41,7 @@ class popi:
                 newChild.genotype[i] = self.genotype[i]
             else:
                 newChild.genotype[i] = parent2.genotype[i]
+        newChild.parentsFitness = (self.fitness, parent2.fitness)
         return newChild
 
     def mutate(self):
@@ -120,6 +122,12 @@ class subPopulation:
                               'fitnessRank': p.fitnessRank,
                               'biodiversity': p.biodiversity,
                               'populationSize': len(self.population)}
+            if p.parentsFitness is not None:
+                terminalValues['parent1fitness'] = p.parentsFitness[0]
+                terminalValues['parent2fitness'] = p.parentsFitness[1]
+            else:
+                terminalValues['parent1fitness'] = p.fitness
+                terminalValues['parent2fitness'] = p.fitness
             p.parentChance = self.parentSelectionFunction.get(terminalValues)
 
         # normalize if negative chances are present
@@ -136,6 +144,12 @@ class subPopulation:
                               'fitnessRank': p.fitnessRank,
                               'biodiversity': p.biodiversity,
                               'populationSize': len(self.population)}
+            if p.parentsFitness is not None:
+                terminalValues['parent1fitness'] = p.parentsFitness[0]
+                terminalValues['parent2fitness'] = p.parentsFitness[1]
+            else:
+                terminalValues['parent1fitness'] = p.fitness
+                terminalValues['parent2fitness'] = p.fitness
             p.survivalChance = self.survivalSelectionFunction.get(terminalValues)
 
         # normalize if negative chances are present
@@ -257,7 +271,7 @@ class subPopulation:
 
 class GPNode:
     numericTerminals = ['constant']
-    dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'biodiversity', 'populationSize']
+    dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'biodiversity', 'populationSize', 'parent1fitness', 'parent2fitness']
     nonTerminals = ['+', '-', '*', '/', 'combo', 'step']
     childCount = {'+': 2, '-': 2, '*': 2, '/': 2, 'combo': 2, 'step': 2}
 
@@ -269,7 +283,7 @@ class GPNode:
 
     def limitedFac(self, nInput, limit=50):
         # a limited factorial function, whose max return value is limit!
-        n = min(abs(int(nInput)), limit)
+        n = int(min(abs(nInput), limit))
         return math.factorial(n)
 
     def combo(self, n, k):
