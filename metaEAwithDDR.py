@@ -275,7 +275,7 @@ class subPopulation:
                         self.evals += lam
 
 class GPNode:
-    numericTerminals = ['constant']
+    numericTerminals = ['constant', 'random']
     dataTerminals = ['fitness', 'fitnessProportion', 'fitnessRank', 'biodiversity', 'populationSize', 'parent1fitness', 'parent2fitness', 'evaluations']
     nonTerminals = ['+', '-', '*', '/', 'combo', 'step']
     childCount = {'+': 2, '-': 2, '*': 2, '/': 2, 'combo': 2, 'step': 2}
@@ -305,7 +305,7 @@ class GPNode:
             self.operation = random.choice(GPNode.numericTerminals + GPNode.dataTerminals + GPNode.nonTerminals)
 
         if self.operation == 'constant':
-            self.data = random.randrange(0, 10)
+            self.data = random.expovariate(0.07)
         if self.operation in GPNode.nonTerminals:
             self.children = []
             for i in range(GPNode.childCount[self.operation]):
@@ -341,6 +341,9 @@ class GPNode:
 
         elif self.operation == 'constant':
             return self.data
+
+        elif self.operation == 'random':
+            return random.expovariate(0.07)
 
         else:
             print("ERROR: operation " + str(self.operation) + " not found")
