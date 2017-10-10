@@ -270,9 +270,9 @@ class subPopulation:
                 if all(b == bestEvals[0] for b in bestEvals):
                     # terminate early, autofilling average and best fitness dictionaries
                     while self.evals < maxEvals:
+                        self.evals += lam
                         self.averageFitnessDict[self.evals] = self.averageFitness
                         self.bestFitnessDict[self.evals] = self.bestFitness
-                        self.evals += lam
 
 class GPNode:
     numericTerminals = ['constant', 'random']
