@@ -195,11 +195,15 @@ class subPopulation:
             print("ERROR: Overrun survival selection with " + str(selectionNum) + " remaining")
         return selected, selectedIndex
 
-    def recombine(self, parent2, recombinationDecider):
-        # recombine the parent and survival selection functions of two subpopulations and return a new child
+    def recombine(self, parent2, mutationRate, recombinationDecider):
+        # recombine/mutate the parent and survival selection functions of two subpopulations and return a new child
         newChild = subPopulation()
         newChild.parentSelectionFunction = self.parentSelectionFunction.recombine(parent2.parentSelectionFunction, recombinationDecider)
+        if random.random() < mutationRate:
+            newChild.parentSelectionFunction.mutate()
         newChild.survivalSelectionFunction = self.survivalSelectionFunction.recombine(parent2.survivalSelectionFunction, recombinationDecider)
+        if random.random() < mutationRate:
+            newChild.survivalSelectionFunction.mutate()
         return newChild
 
     def runEvolution(self):
@@ -411,6 +415,19 @@ class GPTree:
         newChild.replaceNode(insertionPoint, replacementTree)
 
         return newChild
+
+    def mutate(self):
+        # replaces a randomly selected subtree with a new random subtree
+
+        # select a point to insert a new random tree
+        insertionPoint = random.choice(self.getAllNodes())
+
+        # randomly generate a new subtree
+        newSubtree = GPNode()
+        newSubtree.grow(3, None)
+
+        # insert the new subtree
+        self.replaceNode(insertionPoint, newSubtree)
         
     def get(self, terminalValues):
         return self.root.get(terminalValues)
@@ -519,6 +536,8 @@ def metaEAoneRun(runNum):
 
     DDREnabled = config.getboolean('DDR', 'DDR enabled')
 
+    GPmutationRate = config.getfloat('metaEA', 'metaEA mutation rate')
+
     numFinalEARuns = config.getint('metaEA', 'base EA runs') #TODO:make this more configurable
 
     # initialize the recombination decider if we are using one
@@ -554,14 +573,18 @@ def metaEAoneRun(runNum):
 
     # GP EA loop
     while GPEvals < maxGPEvals:
-        # parent selection (k tournament)
+
         children = []
         while len(children) < GPLambda:
+            # parent selection (k tournament)
             parent1 = max(random.sample(GPPopulation, GPKTournamentK), key=lambda p: p.bestFitness)
             parent2 = max(random.sample(GPPopulation, GPKTournamentK), key=lambda p: p.bestFitness)
-            newChild = parent1.recombine(parent2, recombinationDecider)
+            # recombination/mutation
+            newChild = parent1.recombine(parent2, GPmutationRate, recombinationDecider)
+            # run evolution with this child
             newChild.runEvolution()
             GPEvals += 1
+            # add to the population
             children.append(newChild)
 
         # population merging
@@ -744,6 +767,7 @@ def generateDefaultConfig(filePath):
         'metaEA maximum fitness evaluations': 200,
         'metaEA k-tournament size': 8,
         'metaEA GP tree initialization depth limit': 3,
+        'metaEA mutation rate': 0.01,
         'base EA runs': 30,
         'processes': -1
     }
