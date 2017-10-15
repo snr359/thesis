@@ -19,6 +19,8 @@ def get_fitness(x, function_name):
         val = rastrigin_moderate_uniform_noise(x)
         fitness = -1 * val
         return fitness
+    elif function_name == 'trap':
+        return trap(x)
 
     # base case: function_name not found
     else:
@@ -69,6 +71,21 @@ def rosenbrock(x, f_opt=0):
 
 def rastrigin(x, a=10):
     return a*len(x) + sum(xi**2 - a*math.cos(2*math.pi*xi) for xi in x)
+
+def trap(x, k=5):
+    if len(x) % k != 0:
+        print('ERROR: attempting trap function with trap size {0} on genome of size {1}'.format(k, len(x)))
+        return 0
+    i = 0
+    fitness = 0
+    while i < len(x):
+        t = sum(x[i + j] for j in range(k))
+        if t == k:
+            fitness += k
+        else:
+            fitness += k - 1 - t
+        i += k
+    return fitness
 
 
 

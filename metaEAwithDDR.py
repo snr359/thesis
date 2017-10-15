@@ -64,6 +64,8 @@ class popi:
         if config.get('experiment', 'fitness function') in ['rosenbrock_moderate_uniform_noise',
                                                         'rastrigin_moderate_uniform_noise']:
             self.dataType = 'float'
+        elif config.get('experiment', 'fitness function') in ['trap']:
+            self.dataType = 'bool'
 
         else:
             print('ERROR: no datatype found for fitness function {0}'.format(config['experiment']['fitness function']))
@@ -120,13 +122,17 @@ class subPopulation:
 
         minFitness = min(p.fitness for p in self.population)
         if minFitness < 0:
-            fitnessSum = sum((p.fitness + minFitness) for p in self.population)
-            for p in self.population:
-                p.fitnessProportion = (p.fitness + minFitness) / fitnessSum
+            fitAdd = 0
         else:
-            fitnessSum = sum(p.fitness for p in self.population)
+            fitAdd = minFitness
+
+        fitnessSum = sum((p.fitness + fitAdd) for p in self.population)
+        if fitnessSum == 0:
             for p in self.population:
-                p.fitnessProportion = p.fitness / fitnessSum
+                p.fitnessProportion = 1
+        else:
+            for p in self.population:
+                p.fitnessProportion = (p.fitness + fitAdd) / fitnessSum
 
         # biodiversity
         genomeLength = len(self.population[0].genotype)
