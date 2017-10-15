@@ -21,6 +21,7 @@ import fitness_functions as ff
 class popi:
     def __init__(self):
         self.genotype = None
+        self.dataType = None
 
         self.fitness = None
         self.fitnessProportion = None
@@ -42,15 +43,39 @@ class popi:
             else:
                 newChild.genotype[i] = parent2.genotype[i]
         newChild.parentsFitness = (self.fitness, parent2.fitness)
+        newChild.dataType = self.dataType
         return newChild
 
-    def mutate(self):
+    def mutation(self):
         geneLength = len(self.genotype)
+        mutationChance = config.getfloat('baseEA', 'base EA mutation rate')
         for i in range(geneLength):
-            self.genotype[i] += random.triangular(-1, 1, 0)
+            if random.random() < mutationChance:
+                if self.dataType == 'float':
+                    self.genotype[i] += random.triangular(-1, 1, 0)
+                elif self.dataType == 'int':
+                    self.genotype[i] += int(random.triangular(-10, 10, 0))
+                elif self.dataType == 'bool':
+                    self.genotype[i] = not self.genotype[i]
+                else:
+                    print('ERROR: data type {0} not recognized for mutation'.format(self.dataType))
         
     def randomize(self, initialRange, dim):
-        self.genotype = (np.random.rand(dim)- 0.5) * initialRange
+        if config.get('experiment', 'fitness function') in ['rosenbrock_moderate_uniform_noise',
+                                                        'rastrigin_moderate_uniform_noise']:
+            self.dataType = 'float'
+
+        else:
+            print('ERROR: no datatype found for fitness function {0}'.format(config['experiment']['fitness function']))
+
+        if self.dataType == 'float':
+            self.genotype = (np.random.rand(dim)- 0.5) * initialRange
+        elif self.dataType == 'int':
+            self.genotype = list(int(p) for p in ((np.random.rand(dim) - 0.5) * initialRange))
+        elif self.dataType == 'bool':
+            self.genotype = list(random.random() > 0.5 for p in range(dim))
+        else:
+            print('ERROR: data type {0} not recognized for random initialization'.format(self.dataType))
 
         self.fitness = None
         self.fitnessProportion = None
@@ -243,8 +268,7 @@ class subPopulation:
                 parent1 = self.parentSelection()
                 parent2 = self.parentSelection()
                 newChild = parent1.recombine(parent2)
-                if random.random() < mutationRate:
-                    newChild.mutate()
+                newChild.mutation()
                 children.append(newChild)
             self.evaluateAll(children)
             self.evals += lam
