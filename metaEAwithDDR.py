@@ -678,6 +678,12 @@ def metaEAoneRun(runNum):
     resultWriter.writerow([bestGPPopi.parentSelectionFunction.getString()])
     resultWriter.writerow([bestGPPopi.survivalSelectionFunction.getString()])
 
+    # record the best population member
+    bestSubPop = max(GPPopulation, key=lambda p:p.bestFitness)
+    bestPopi = max(bestSubPop.population, key=lambda p:p.fitness)
+    resultWriter.writerow(['Best population member:'])
+    resultWriter.writerow(list(bestPopi.genotype))
+
     resultFile.close()
 
     return averageAverageFitness, averageBestFitness, bestAverageFitness, bestBestFitness, recombinationDepth
@@ -863,4 +869,6 @@ if __name__ == "__main__":
 
     # print time elapsed
     print("Time elapsed: {0}".format(time.time() - startTime))
+
+
 
