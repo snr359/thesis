@@ -64,7 +64,8 @@ class popi:
         if config.get('experiment', 'fitness function') in ['rosenbrock_moderate_uniform_noise',
                                                         'rastrigin_moderate_uniform_noise']:
             self.dataType = 'float'
-        elif config.get('experiment', 'fitness function') in ['trap']:
+        elif config.get('experiment', 'fitness function') in ['trap',
+                                                              'deceptive_trap']:
             self.dataType = 'bool'
 
         else:

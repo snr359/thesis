@@ -27,6 +27,15 @@ def get_fitness(x, function_name):
             fitness += trap(x[i:(i+k)], k)
             i += k
         return fitness
+    elif function_name == 'deceptive_trap':
+        fitness = 0
+        i = 0
+        k = 7
+        s = 2
+        while i < len(x):
+            fitness += ((k-s%s) + trap(x[i:(i+k)], k)) / s
+            i += k
+        return fitness
 
     # base case: function_name not found
     else:
