@@ -788,7 +788,8 @@ def generateDefaultConfig(filePath):
         'metaEA runs': 30,
         'dimensionality': 30,
         'fitness function': 'rosenbrock_moderate_uniform_noise',
-        'GP initialization depth limit': 3
+        'GP initialization depth limit': 3,
+        'seed': 'time'
     }
     config['DDR'] = {
         'DDR enabled': True,
@@ -850,7 +851,12 @@ if __name__ == "__main__":
     startTime = time.time()
 
     # seed RNGs
-    seed = int(time.time())
+    seed = config.get('experiment', 'seed')
+    try:
+        seed = int(seed)
+    except ValueError:
+        seed = int(time.time())
+
     random.seed(seed)
     np.random.seed(seed)
 
@@ -868,7 +874,10 @@ if __name__ == "__main__":
     metaEAWithDDR(resultsPath)
 
     # print time elapsed
-    print("Time elapsed: {0}".format(time.time() - startTime))
+    timeElapsed = time.time() - startTime
+    print("Time elapsed: {0}".format(timeElapsed))
 
-
-
+    # record seed and time elapsed
+    with open(resultsPath + 'log.txt', 'w') as logFile:
+        logFile.write('Random seed used: {0}\n'.format(seed))
+        logFile.write('Time elapsed: {0}\n'.format(timeElapsed))
