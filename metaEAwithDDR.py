@@ -239,14 +239,19 @@ class subPopulation:
             newChild.survivalSelectionFunction.mutate()
         return newChild
 
-    def runEvolution(self):
+    def runEvolution(self, final=False):
         # runs a full EA, using the assigned parent and survival selection functions
         # the evolution parameters are read from the configuration file
 
         # read the parameters from the config file
         mu = config.getint('baseEA', 'base EA mu')
         lam = config.getint('baseEA', 'base EA lambda')
-        maxEvals = config.getint('baseEA', 'base EA maximum fitness evaluations')
+
+        if not final:
+            maxEvals = config.getint('baseEA', 'base EA maximum fitness evaluations')
+        else:
+            maxEvals = config.getint('baseEA', 'base EA final run maximum fitness evaluations')
+
         initialRange = config.getint('baseEA', 'initialization range')
         mutationRate = config.getfloat('baseEA', 'base EA mutation rate')
         dim = config.getint('experiment', 'dimensionality')
@@ -266,6 +271,8 @@ class subPopulation:
 
         self.averageFitnessDict[self.evals] = self.averageFitness
         self.bestFitnessDict[self.evals] = self.bestFitness
+
+        function_name = config.get('experiment', 'fitness function')
 
         # EA loop
         while self.evals < maxEvals:
@@ -299,7 +306,15 @@ class subPopulation:
             self.averageFitnessDict[self.evals] = self.averageFitness
             self.bestFitnessDict[self.evals] = self.bestFitness
 
-            # check for early termination
+            # if we have found the global optimum, terminate now
+            if self.bestFitness == ff.get_optimum(self.population[0].genotype, function_name):
+                # terminate early, autofilling average and best fitness dictionaries
+                while self.evals < maxEvals:
+                    self.evals += lam
+                    self.averageFitnessDict[self.evals] = self.averageFitness
+                    self.bestFitnessDict[self.evals] = self.bestFitness
+
+            # check for early convergence termination
             if convergenceTermination and len(self.bestFitnessDict) >= convergenceGens:
                 bestEvalsWindow = sorted(self.bestFitnessDict.keys())[-convergenceGens:]
                 bestEvals = list(self.bestFitnessDict[e] for e in bestEvalsWindow)
@@ -309,6 +324,7 @@ class subPopulation:
                         self.evals += lam
                         self.averageFitnessDict[self.evals] = self.averageFitness
                         self.bestFitnessDict[self.evals] = self.bestFitness
+
 
 class GPNode:
     numericTerminals = ['constant', 'random']
@@ -644,7 +660,7 @@ def metaEAoneRun(runNum):
     allRunsBestFitnesses = []
 
     for r in range(numFinalEARuns):
-        finalEA.runEvolution()
+        finalEA.runEvolution(final=True)
         evalCounts = sorted(list(finalEA.averageFitnessDict.keys()))
 
         allRunsAverageFitnesses.append(finalEA.averageFitnessDict)
@@ -697,6 +713,7 @@ def metaEAWithDDR(resultsPath):
     subPopLambda = config.getint('baseEA', 'base EA lambda')
 
     maxSubPopEvals = config.getint('baseEA', 'base EA maximum fitness evaluations')
+    maxSubPopEvalsFinalRun = config.getint('baseEA', 'base EA final run maximum fitness evaluations')
 
     DDREnabled = config.getboolean('DDR', 'DDR enabled')
 
@@ -733,7 +750,7 @@ def metaEAWithDDR(resultsPath):
     bestBestBest = []
     averageRecombinationDepth = []
 
-    evalCounts = range(subPopMu, maxSubPopEvals + 1, subPopLambda)
+    evalCounts = range(subPopMu, maxSubPopEvalsFinalRun + 1, subPopLambda)
     GPevalCounts = range(GPMu, maxGPEvals + 1, GPLambda)
 
     for i in range(len(evalCounts)):
@@ -815,6 +832,7 @@ def generateDefaultConfig(filePath):
         'base EA mu': 100,
         'base EA lambda': 100,
         'base EA maximum fitness evaluations': 3000,
+        'base EA final run maximum fitness evaluations': 1000000,
         'base EA mutation rate': 0.05,
         'convergence termination': True,
         'convergence generations': 5
