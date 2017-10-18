@@ -55,7 +55,18 @@ def get_optimum(x, function_name):
     elif function_name == 'trap':
         return len(x)
     elif function_name == 'deceptive_trap':
-
+        k = 7
+        s = 2
+        return sum((((k-s)%s)+k)/s for _ in range(len(x)//k))
+    elif function_name == 'hierarchical_if_and_only_if':
+        n = len(x) // 2
+        fitness = 0
+        d = 1
+        while n > 0:
+            fitness += (2**(d+1)-1) * n
+            n = n//2
+            d += 1
+        return fitness
 
 # NOISY FUNCTIONS
 
