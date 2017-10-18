@@ -65,7 +65,8 @@ class popi:
                                                         'rastrigin_moderate_uniform_noise']:
             self.dataType = 'float'
         elif config.get('experiment', 'fitness function') in ['trap',
-                                                              'deceptive_trap']:
+                                                              'deceptive_trap',
+                                                              'hierarchical_if_and_only_if']:
             self.dataType = 'bool'
 
         else:

@@ -36,6 +36,9 @@ def get_fitness(x, function_name):
             fitness += ((k-s%s) + trap(x[i:(i+k)], k)) / s
             i += k
         return fitness
+    elif function_name == 'hierarchical_if_and_only_if':
+        fitness, _ = hiff(x)
+        return fitness
 
     # base case: function_name not found
     else:
@@ -95,6 +98,20 @@ def trap(t, k):
     else:
         fitness += k - 1 - t_sum
     return fitness
+
+def hiff(x):
+    # returns (fitness, value), where fitness is the fitness of the subtree x and value is the boolean value of the tree,
+    # or '-' if the trees do not match
+    if len(x) == 1:
+        return 0, x[0]
+    else:
+        split = int(len(x) / 2)
+        fitnessLeft, valueLeft = hiff(x[:split])
+        fitnessRight, valueRight = hiff(x[split:])
+        if valueRight != valueLeft or valueLeft == '-' or valueRight == '-':
+            return fitnessLeft + fitnessRight, '-'
+        else:
+            return len(x) + fitnessLeft + fitnessRight, valueLeft
 
 # TESTING MAIN
 
