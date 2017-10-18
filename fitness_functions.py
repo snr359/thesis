@@ -33,7 +33,7 @@ def get_fitness(x, function_name):
         k = 7
         s = 2
         while i < len(x):
-            fitness += ((k-s)%s) + trap(x[i:(i+k)], k)) / s
+            fitness += ((k-s)%s) + trap(x[i:(i+k)], k) / s
             i += k
         return fitness
     elif function_name == 'hierarchical_if_and_only_if':
@@ -46,6 +46,15 @@ def get_fitness(x, function_name):
         val = rosenbrock_moderate_uniform_noise(x)
         fitness = -1 * val
         return fitness
+
+def get_optimum(x, function_name):
+    if function_name == 'rosenbrock_moderate_uniform_noise':
+        return 0
+    elif function_name == 'rastrigin_moderate_uniform_noise':
+        return 0
+    elif function_name == 'trap':
+        return len(x)
+    elif function_name == 'deceptive_trap':
 
 
 # NOISY FUNCTIONS
