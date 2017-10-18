@@ -105,3 +105,6 @@ ENV/
 
 # Results
 results/
+
+# Configuration files
+*.cfg
