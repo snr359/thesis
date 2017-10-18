@@ -138,9 +138,9 @@ class subPopulation:
 
         # biodiversity
         genomeLength = len(self.population[0].genotype)
-        averageGenome = list(mean(p.genotype[i] for p in self.population) for i in range(genomeLength))
+        averageGenome = list(mean(float(p.genotype[i]) for p in self.population) for i in range(genomeLength))
         for p in self.population:
-            p.biodiversity = math.sqrt(sum((p.genotype[i] - averageGenome[i])**2 for i in range(genomeLength)))
+            p.biodiversity = math.sqrt(sum((float(p.genotype[i]) - averageGenome[i])**2 for i in range(genomeLength)))
 
         # normalize
         maxBiodiversity = max(p.biodiversity for p in self.population)
