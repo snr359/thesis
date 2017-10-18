@@ -315,7 +315,7 @@ class subPopulation:
                     self.bestFitnessDict[self.evals] = self.bestFitness
 
             # check for early convergence termination
-            if convergenceTermination and len(self.bestFitnessDict) >= convergenceGens:
+            if convergenceTermination and len(self.bestFitnessDict) >= convergenceGens and not final:
                 bestEvalsWindow = sorted(self.bestFitnessDict.keys())[-convergenceGens:]
                 bestEvals = list(self.bestFitnessDict[e] for e in bestEvalsWindow)
                 if all(b == bestEvals[0] for b in bestEvals):
