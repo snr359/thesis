@@ -37,11 +37,9 @@ class popi:
     def recombine(self, parent2):
         newChild = popi()
         geneLength = len(self.genotype)
-        newChild.genotype = np.zeros(geneLength)
+        newChild.genotype = np.array(self.genotype)
         for i in range(geneLength):
             if random.random() > 0.5:
-                newChild.genotype[i] = self.genotype[i]
-            else:
                 newChild.genotype[i] = parent2.genotype[i]
         newChild.parentsFitness = (self.fitness, parent2.fitness)
         newChild.dataType = self.dataType
@@ -75,7 +73,7 @@ class popi:
             print('ERROR: no datatype found for fitness function {0}'.format(config['experiment']['fitness function']))
 
         if self.dataType == 'float':
-            self.genotype = (np.random.rand(dim)- 0.5) * initialRange
+            self.genotype = (np.random.rand(dim) - 0.5) * initialRange
         elif self.dataType == 'int':
             self.genotype = list(int(p) for p in ((np.random.rand(dim) - 0.5) * initialRange))
         elif self.dataType == 'bool':
@@ -268,7 +266,7 @@ class subPopulation:
         self.bestFitnessDict = dict()
 
         self.bestFitness = max(p.fitness for p in self.population)
-        self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
+        self.averageFitness = np.mean(list(p.fitness for p in self.population))
 
         self.averageFitnessDict[self.evals] = self.averageFitness
         self.bestFitnessDict[self.evals] = self.bestFitness
@@ -303,7 +301,7 @@ class subPopulation:
 
             # calculate status
             self.bestFitness = max(p.fitness for p in self.population)
-            self.averageFitness = sum(p.fitness for p in self.population) / len(self.population)
+            self.averageFitness = np.mean(list(p.fitness for p in self.population))
             self.averageFitnessDict[self.evals] = self.averageFitness
             self.bestFitnessDict[self.evals] = self.bestFitness
 
