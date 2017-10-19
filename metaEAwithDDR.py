@@ -122,13 +122,15 @@ class subPopulation:
         for i, p in enumerate(self.population):
             p.fitnessRank = i
 
-        minFitness = min(p.fitness for p in self.population)
+        genotypes = np.array(list(p.genotype for p in self.population))
+
+        minFitness = self.population[0].fitness
         if minFitness < 0:
             fitAdd = 0
         else:
             fitAdd = minFitness
 
-        fitnessSum = sum((p.fitness + fitAdd) for p in self.population)
+        fitnessSum = np.sum((p.fitness + fitAdd) for p in self.population)
         if fitnessSum == 0:
             for p in self.population:
                 p.fitnessProportion = 1
@@ -137,16 +139,14 @@ class subPopulation:
                 p.fitnessProportion = (p.fitness + fitAdd) / fitnessSum
 
         # biodiversity
-        genomeLength = len(self.population[0].genotype)
-        averageGenome = list(mean(float(p.genotype[i]) for p in self.population) for i in range(genomeLength))
-        for p in self.population:
-            p.biodiversity = math.sqrt(sum((float(p.genotype[i]) - averageGenome[i])**2 for i in range(genomeLength)))
-
-        # normalize
-        maxBiodiversity = max(p.biodiversity for p in self.population)
-        if maxBiodiversity != 0:
-            for p in self.population:
-                p.biodiversity /= maxBiodiversity
+        averageGenotype = np.mean(genotypes, 0)
+        genotypeDifferences = genotypes - averageGenotype
+        genotypeDistances = np.sum(genotypeDifferences ** 2, 1)
+        sumDistance = np.sum(genotypeDistances)
+        if sumDistance != 0:
+            genotypeDistances /= sumDistance
+        for i, p in enumerate(self.population):
+            p.biodiversity = genotypeDistances[i]
 
     def assignParentSelectionChances(self):
         self.updateStats()
@@ -198,7 +198,7 @@ class subPopulation:
 
     def parentSelection(self):
         selected = None
-        totalChance = sum(p.parentChance for p in self.population)
+        totalChance = np.sum(p.parentChance for p in self.population)
         selectionNum = random.uniform(0, totalChance)
         for p in self.population:
             if selectionNum <= p.parentChance:
@@ -214,7 +214,7 @@ class subPopulation:
     def survivalSelection(self):
         selected = None
         selectedIndex = None
-        totalChance = sum(p.survivalChance for p in self.population)
+        totalChance = np.sum(p.survivalChance for p in self.population)
         selectionNum = random.uniform(0, totalChance)
         for i, p in enumerate(self.population):
             if selectionNum <= p.survivalChance:
