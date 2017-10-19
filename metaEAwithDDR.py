@@ -10,6 +10,7 @@ import math
 import multiprocessing
 import configparser
 import shutil
+import functools
 
 import numpy as np
 
@@ -48,7 +49,7 @@ class popi:
 
     def mutation(self):
         geneLength = len(self.genotype)
-        mutationChance = config.getfloat('baseEA', 'base EA mutation rate')
+        mutationChance = getFromConfig('baseEA', 'base EA mutation rate', 'float')
         for i in range(geneLength):
             if random.random() < mutationChance:
                 if self.dataType == 'float':
@@ -61,12 +62,13 @@ class popi:
                     print('ERROR: data type {0} not recognized for mutation'.format(self.dataType))
         
     def randomize(self, initialRange, dim):
-        if config.get('experiment', 'fitness function') in ['rosenbrock_moderate_uniform_noise',
-                                                        'rastrigin_moderate_uniform_noise']:
+        fitness_function = getFromConfig('experiment', 'fitness function')
+        if fitness_function in ['rosenbrock_moderate_uniform_noise',
+                                'rastrigin_moderate_uniform_noise']:
             self.dataType = 'float'
-        elif config.get('experiment', 'fitness function') in ['trap',
-                                                              'deceptive_trap',
-                                                              'hierarchical_if_and_only_if']:
+        elif fitness_function in ['trap',
+                                  'deceptive_trap',
+                                  'hierarchical_if_and_only_if']:
             self.dataType = 'bool'
 
         else:
@@ -109,7 +111,7 @@ class subPopulation:
             self.population.append(newPopi)
             
     def evaluateAll(self, populationToEval):
-        function_name = config.get('experiment', 'fitness function')
+        function_name = getFromConfig('experiment', 'fitness function')
         genotypes = list(p.genotype for p in populationToEval)
         fitnessValues = list(ff.get_fitness(g, function_name) for g in genotypes)
         for i,p in enumerate(populationToEval):
@@ -244,20 +246,19 @@ class subPopulation:
         # the evolution parameters are read from the configuration file
 
         # read the parameters from the config file
-        mu = config.getint('baseEA', 'base EA mu')
-        lam = config.getint('baseEA', 'base EA lambda')
+        mu = getFromConfig('baseEA', 'base EA mu', 'int')
+        lam = getFromConfig('baseEA', 'base EA lambda', 'int')
 
         if not final:
-            maxEvals = config.getint('baseEA', 'base EA maximum fitness evaluations')
+            maxEvals = getFromConfig('baseEA', 'base EA maximum fitness evaluations', 'int')
         else:
-            maxEvals = config.getint('baseEA', 'base EA final run maximum fitness evaluations')
+            maxEvals = getFromConfig('baseEA', 'base EA final run maximum fitness evaluations', 'int')
 
-        initialRange = config.getint('baseEA', 'initialization range')
-        mutationRate = config.getfloat('baseEA', 'base EA mutation rate')
-        dim = config.getint('experiment', 'dimensionality')
+        initialRange = getFromConfig('baseEA', 'initialization range', 'int')
+        dim = getFromConfig('experiment', 'dimensionality', 'int')
 
-        convergenceTermination = config.getboolean('baseEA', 'convergence termination')
-        convergenceGens = config.getint('baseEA', 'convergence generations')
+        convergenceTermination = getFromConfig('baseEA', 'convergence termination', 'bool')
+        convergenceGens = getFromConfig('baseEA', 'convergence generations', 'int')
 
         # initialization
         self.randomizeNum(mu, initialRange, dim)
@@ -272,7 +273,7 @@ class subPopulation:
         self.averageFitnessDict[self.evals] = self.averageFitness
         self.bestFitnessDict[self.evals] = self.bestFitness
 
-        function_name = config.get('experiment', 'fitness function')
+        function_name = getFromConfig('experiment', 'fitness function')
 
         # EA loop
         while self.evals < maxEvals:
@@ -523,14 +524,14 @@ class GPRecombinationDecider:
     # an object that manages recombination of GP trees to facilitate dynamic decomposition and recomposition of GP primitives
     def __init__(self):
         # the size of the sliding window used to determine whether fitness is stagnating
-        self.fitnessWindowSize = config.getint('DDR', 'fitness window size')
+        self.fitnessWindowSize = getFromConfig('DDR', 'fitness window size', 'int')
         # the maximum amount of fitness change throughout the fitness window that will trigger a recombination depth increase
-        self.fitnessStagnationThreshold = config.getfloat('DDR', 'fitness stagnation threshold')
+        self.fitnessStagnationThreshold = getFromConfig('DDR', 'fitness stagnation threshold', 'float')
         # the minimum amount of fitness change anywhere in the fitness window that will trigger a recombination depth decrease
-        self.fitnessClimbThreshold = config.getfloat('DDR', 'fitness climb threshold')
+        self.fitnessClimbThreshold = getFromConfig('DDR', 'fitness climb threshold', 'float')
 
         # the distance from the root node within which recombination is permitted
-        self.recombinationDepth = config.getint('DDR', 'initial recombination depth')
+        self.recombinationDepth = getFromConfig('DDR', 'initial recombination depth', 'int')
 
         # the number of generations since the last change in recombinationDepth
         self.gensSinceLastDepthChange = 0
@@ -574,19 +575,17 @@ def metaEAoneRun(runNum):
     # runs the meta EA for one run
 
     # get the parameters from the configuration file
-    dim = config.getint('experiment', 'dimensionality')
+    GPMu = getFromConfig('metaEA', 'metaEA mu', 'int')
+    GPLambda = getFromConfig('metaEA', 'metaEA lambda', 'int')
+    maxGPEvals = getFromConfig('metaEA', 'metaEA maximum fitness evaluations', 'int')
+    initialGPDepthLimit = getFromConfig('metaEA', 'metaEA GP tree initialization depth limit', 'int')
+    GPKTournamentK = getFromConfig('metaEA', 'metaEA k-tournament size', 'int')
 
-    GPMu = config.getint('metaEA', 'metaEA mu')
-    GPLambda = config.getint('metaEA', 'metaEA lambda')
-    maxGPEvals = config.getint('metaEA', 'metaEA maximum fitness evaluations')
-    initialGPDepthLimit = config.getint('metaEA', 'metaEA GP tree initialization depth limit')
-    GPKTournamentK = config.getint('metaEA', 'metaEA k-tournament size')
+    DDREnabled = getFromConfig('DDR', 'DDR enabled', 'bool')
 
-    DDREnabled = config.getboolean('DDR', 'DDR enabled')
+    GPmutationRate = getFromConfig('metaEA', 'metaEA mutation rate', 'float')
 
-    GPmutationRate = config.getfloat('metaEA', 'metaEA mutation rate')
-
-    numFinalEARuns = config.getint('metaEA', 'base EA runs') #TODO:make this more configurable
+    numFinalEARuns = getFromConfig('metaEA', 'base EA runs', 'int') #TODO:make this more configurable
 
     # initialize the recombination decider if we are using one
     if DDREnabled:
@@ -707,21 +706,20 @@ def metaEAoneRun(runNum):
     return averageAverageFitness, averageBestFitness, bestAverageFitness, bestBestFitness, recombinationDepth
 
 def metaEAWithDDR(resultsPath):
-    numMetaRuns = config.getint('experiment', 'metaEA runs')
+    numMetaRuns = getFromConfig('experiment', 'metaEA runs', 'int')
 
-    subPopMu = config.getint('baseEA', 'base EA mu')
-    subPopLambda = config.getint('baseEA', 'base EA lambda')
+    subPopMu = getFromConfig('baseEA', 'base EA mu', 'int')
+    subPopLambda = getFromConfig('baseEA', 'base EA lambda', 'int')
 
-    maxSubPopEvals = config.getint('baseEA', 'base EA maximum fitness evaluations')
-    maxSubPopEvalsFinalRun = config.getint('baseEA', 'base EA final run maximum fitness evaluations')
+    maxSubPopEvalsFinalRun = getFromConfig('baseEA', 'base EA final run maximum fitness evaluations', 'int')
 
-    DDREnabled = config.getboolean('DDR', 'DDR enabled')
+    DDREnabled = getFromConfig('DDR', 'DDR enabled', 'bool')
 
-    GPMu = config.getint('metaEA', 'metaEA mu')
-    GPLambda = config.getint('metaEA', 'metaEA lambda')
-    maxGPEvals = config.getint('metaEA', 'metaEA maximum fitness evaluations')
+    GPMu = getFromConfig('metaEA', 'metaEA mu', 'int')
+    GPLambda = getFromConfig('metaEA', 'metaEA lambda', 'int')
+    maxGPEvals = getFromConfig('metaEA', 'metaEA maximum fitness evaluations', 'int')
 
-    numProcesses = config.getint('metaEA', 'processes')
+    numProcesses = getFromConfig('metaEA', 'processes', 'int')
 
     if numProcesses > 1 or numProcesses == -1:
 
@@ -841,6 +839,17 @@ def generateDefaultConfig(filePath):
     with open(filePath, 'w') as file:
         config.write(file)
 
+@functools.lru_cache(maxsize=2048)
+def getFromConfig(section, value, type=None):
+    if type == 'bool':
+        return config.getboolean(section, value)
+    elif type == 'int':
+        return config.getint(section, value)
+    elif type == 'float':
+        return config.getfloat(section, value)
+    else:
+        return config.get(section, value)
+
 if __name__ == "__main__":
 
     # set up the configuration object. This will be referenced by multiple functions and classes within this module
@@ -863,15 +872,15 @@ if __name__ == "__main__":
 
     config.read(configPath)
 
-    DDREnabled = config.getboolean('DDR', 'DDR enabled')
+    DDREnabled = getFromConfig('DDR', 'DDR enabled', 'bool')
 
-    dim = config.getint('experiment', 'dimensionality')
+    dim = getFromConfig('experiment', 'dimensionality', 'int')
 
     # record start time
     startTime = time.time()
 
     # seed RNGs
-    seed = config.get('experiment', 'seed')
+    seed = getFromConfig('experiment', 'seed', 'int')
     try:
         seed = int(seed)
     except ValueError:
