@@ -99,6 +99,22 @@ class subPopulation:
         self.averageFitnessDict = dict()
         self.bestFitnessDict = dict()
         self.evals = None
+        self.processingPool = None
+
+    def setupPool(self):
+        if self.processingPool is not None:
+            self.processingPool.close()
+            self.processingPool = None
+
+        numProcesses = getFromConfig('baseEA', 'base EA fitness function processes', 'int')
+
+        if numProcesses != 1:
+            if numProcesses > 1:
+                self.processingPool = multiprocessing.Pool(processes=numProcesses)
+            else:
+                self.processingPool = multiprocessing.Pool()
+        else:
+            self.processingPool = None
         
     def randomizeNum(self, num, initialRange, dim):
         # initializes and randomizes a number of population individuals
@@ -111,7 +127,12 @@ class subPopulation:
     def evaluateAll(self, populationToEval):
         function_name = getFromConfig('experiment', 'fitness function')
         genotypes = list(p.genotype for p in populationToEval)
-        fitnessValues = list(ff.get_fitness(g, function_name) for g in genotypes)
+
+        if self.processingPool is not None:
+            fitnessValues = self.processingPool.starmap(ff.get_fitness, ((g, function_name) for g in genotypes))
+        else:
+            fitnessValues = list(ff.get_fitness(g, function_name) for g in genotypes)
+
         for i,p in enumerate(populationToEval):
             p.fitness = fitnessValues[i]
 
@@ -271,6 +292,8 @@ class subPopulation:
         self.averageFitnessDict[self.evals] = self.averageFitness
         self.bestFitnessDict[self.evals] = self.bestFitness
 
+        self.setupPool()
+
         function_name = getFromConfig('experiment', 'fitness function')
 
         # EA loop
@@ -324,6 +347,10 @@ class subPopulation:
                         self.averageFitnessDict[self.evals] = self.averageFitness
                         self.bestFitnessDict[self.evals] = self.bestFitness
 
+        # close fitness evaluation pool
+        if self.processingPool is not None:
+            self.processingPool.close()
+            self.processingPool = None
 
 class GPNode:
     numericTerminals = ['constant', 'random']
@@ -717,7 +744,7 @@ def metaEAWithDDR(resultsPath):
     GPLambda = getFromConfig('metaEA', 'metaEA lambda', 'int')
     maxGPEvals = getFromConfig('metaEA', 'metaEA maximum fitness evaluations', 'int')
 
-    numProcesses = getFromConfig('metaEA', 'processes', 'int')
+    numProcesses = getFromConfig('metaEA', 'metaEA processes', 'int')
 
     if numProcesses > 1 or numProcesses == -1:
 
