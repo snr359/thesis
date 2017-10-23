@@ -918,24 +918,7 @@ def getFromConfig(section, value, type=None):
     else:
         return config.get(section, value)
 
-
-def test():
-    ps = GPTree()
-    ps.growRoot(4)
-    ss = GPTree()
-    ss.growRoot(4)
-    print(ps.getString())
-    print(ps.getDict())
-    print(ss.getString())
-    print(ss.getDict())
-    ps.saveToDict('./testStandalone/ps')
-    ss.saveToDict('./testStandalone/ss')
-
-
-
 if __name__ == "__main__":
-    test()
-    exit()
 
     # set up the configuration object. This will be referenced by multiple functions and classes within this module
     config = configparser.ConfigParser()
