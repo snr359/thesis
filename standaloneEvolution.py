@@ -1,5 +1,5 @@
-# this file supports a standalone evolution run, loading a subpopulation stored at the file subPop in the configured
-# directory
+# this file supports a standalone evolution run, loading parent and survival selection functions pickled as ps and ss
+# respectively, in the configured directory.
 # it uses the argparse module to input configuraitons instead of a config file, and it does not support
 # multiprocessing
 # TODO: add this functionality to main python file instead of using standalone duplicate code
@@ -258,7 +258,7 @@ class subPopulation:
         initialRange = args.init_range
         dim = args.dim
 
-        convergenceTermination = args.convergence_terminations
+        convergenceTermination = args.convergence_termination
         convergenceGens = args.convergence_generations
 
         # initialization
@@ -435,6 +435,30 @@ class GPNode:
                 nodes.extend(c.getAllNodesDepthLimited(depthLimit - 1))
         return nodes
 
+    def getDict(self):
+        # return a dictionary containing the operation, data, and children of the node
+        result = dict()
+        result['data'] = self.data
+        result['operation'] = self.operation
+        if self.children is not None:
+            result['children'] = []
+            for c in self.children:
+                result['children'].append(c.getDict())
+
+    def buildFromDict(self, d):
+        # builds a GPTree from a dictionary output by getDict
+        self.data = d['data']
+        self.operation = d['operation']
+        if 'children' in d.keys():
+            self.children = []
+            for c in d['children']:
+                newNode = GPNode()
+                newNode.buildFromDict(c)
+                newNode.parent = self
+                self.children.append(newNode)
+        else:
+            self.children = None
+
 
 class GPTree:
     # mostly encapsulates a tree made of GPNodes
@@ -524,6 +548,23 @@ class GPTree:
     def getString(self):
         return self.root.getString()
 
+    def getDict(self):
+        return self.root.getDict()
+
+    def buildFromDict(self, d):
+        self.fitness = None
+        self.root = GPNode()
+        self.root.buildFromDict(d)
+
+    def saveToDict(self, filename):
+        with open(filename, 'wb') as pickleFile:
+            pickle.dump(self.getDict(), pickleFile)
+
+    def loadFromDict(self, filename):
+        with open(filename, 'rb') as pickleFile:
+            d = pickle.load(pickleFile)
+            self.buildFromDict(d)
+
 
 def setupArgs():
     # sets up and reads the command line arguments
@@ -533,6 +574,8 @@ def setupArgs():
     parser.add_argument('--dim', type=int)
     parser.add_argument('--fitness_function')
     parser.add_argument('--init_range', type=float)
+    parser.add_argument('--convergence_termination', type=bool)
+    parser.add_argument('--convergence_generations', type=int)
 
     parser.add_argument('--base_ea_mu', type=int)
     parser.add_argument('--base_ea_lambda', type=int)
@@ -542,6 +585,7 @@ def setupArgs():
     parser.add_argument('--evolutions', type=int)
     parser.add_argument('--seed')
 
+
     args = parser.parse_args()
 
     return args
@@ -549,9 +593,14 @@ def setupArgs():
 def main():
     resultsPath = '{0}/results/'.format(args.directory)
 
-    # load a subpopulation
-    subPopFile = '{0}/subPop'.format(args.directory)
-    subPop = pickle.load(subPopFile)
+    # create a subpopulation and load parent and survival seleciton functions
+    subPop = subPopulation()
+    ps = GPTree()
+    ps.loadFromDict('{0}/ps'.format(args.directory))
+    ss = GPTree()
+    ss.loadFromDict('{0}/ss'.format(args.directory))
+    subPop.parentSelectionFunction = ps
+    subPop.survivalSelectionFunction = ss
     # run evolutions
     finalBestFitnesses = []
     finalAverageFitnesses = []
@@ -571,10 +620,10 @@ def main():
 
     with open('{0}finalFitnesses'.format(resultsPath), 'w') as finalResultsFile:
         writer = csv.writer(finalResultsFile)
-        writer.writeRow(finalAverageFitnesses)
-        writer.writeRow([mean(finalAverageFitnesses)])
-        writer.writeRow(finalBestFitnesses)
-        writer.writeRow([mean(finalBestFitnesses)])
+        writer.writerow(finalAverageFitnesses)
+        writer.writerow([mean(finalAverageFitnesses)])
+        writer.writerow(finalBestFitnesses)
+        writer.writerow([mean(finalBestFitnesses)])
 
 if __name__ == '__main__':
     args = setupArgs()
@@ -588,6 +637,6 @@ if __name__ == '__main__':
     np.random.seed(seed)
 
     resultsPath = '{0}/results/'.format(args.directory)
-    os.makedirs(resultsPath)
+    os.makedirs(resultsPath, exist_ok=True)
 
     main()

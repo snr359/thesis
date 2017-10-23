@@ -11,6 +11,7 @@ import multiprocessing
 import configparser
 import shutil
 import functools
+import pickle
 
 import numpy as np
 
@@ -457,6 +458,31 @@ class GPNode:
                 nodes.extend(c.getAllNodesDepthLimited(depthLimit - 1))
         return nodes
 
+    def getDict(self):
+        # return a dictionary containing the operation, data, and children of the node
+        result = dict()
+        result['data'] = self.data
+        result['operation'] = self.operation
+        if self.children is not None:
+            result['children'] = []
+            for c in self.children:
+                result['children'].append(c.getDict())
+        return result
+
+    def buildFromDict(self, d):
+        # builds a GPTree from a dictionary output by getDict
+        self.data = d['data']
+        self.operation = d['operation']
+        if 'children' in d.keys():
+            self.children = []
+            for c in d['children']:
+                newNode = GPNode()
+                newNode.buildFromDict(c)
+                newNode.parent = self
+                self.children.append(newNode)
+        else:
+            self.children = None
+
 class GPTree:
     # mostly encapsulates a tree made of GPNodes
     def __init__(self):
@@ -544,6 +570,23 @@ class GPTree:
 
     def getString(self):
         return self.root.getString()
+
+    def getDict(self):
+        return self.root.getDict()
+
+    def buildFromDict(self, d):
+        self.fitness = None
+        self.root = GPNode()
+        self.root.buildFromDict(d)
+
+    def saveToDict(self, filename):
+        with open(filename, 'wb') as pickleFile:
+            pickle.dump(self.getDict(), pickleFile)
+
+    def loadFromDict(self, filename):
+        with open(filename, 'rb') as pickleFile:
+            d = pickle.load(pickleFile)
+            self.buildFromDict(d)
 
 class GPRecombinationDecider:
     # an object that manages recombination of GP trees to facilitate dynamic decomposition and recomposition of GP primitives
@@ -875,7 +918,24 @@ def getFromConfig(section, value, type=None):
     else:
         return config.get(section, value)
 
+
+def test():
+    ps = GPTree()
+    ps.growRoot(4)
+    ss = GPTree()
+    ss.growRoot(4)
+    print(ps.getString())
+    print(ps.getDict())
+    print(ss.getString())
+    print(ss.getDict())
+    ps.saveToDict('./testStandalone/ps')
+    ss.saveToDict('./testStandalone/ss')
+
+
+
 if __name__ == "__main__":
+    test()
+    exit()
 
     # set up the configuration object. This will be referenced by multiple functions and classes within this module
     config = configparser.ConfigParser()
