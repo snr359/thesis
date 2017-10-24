@@ -1052,7 +1052,7 @@ def generateDefaultConfig(filePath):
         'GP initialization depth limit': 3,
         'seed': 'time',
         'use irace tuning': True,
-        'irace home': '~/R/x86_64-pc-linux-gnu-library/3.2/irace/'
+        'irace home': '~/R/x86_64-pc-linux-gnu-library/3.2/irace'
     }
     config['DDR'] = {
         'DDR enabled': True,
@@ -1079,6 +1079,7 @@ def generateDefaultConfig(filePath):
         'base EA maximum fitness evaluations': 3000,
         'base EA final run maximum fitness evaluations': 1000000,
         'base EA mutation rate': 0.05,
+        'base EA fitness function processes': 1,
         'convergence termination': True,
         'convergence generations': 5
     }
