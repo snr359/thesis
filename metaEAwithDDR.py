@@ -1069,7 +1069,7 @@ def generateDefaultConfig(filePath):
         'metaEA GP tree initialization depth limit': 3,
         'metaEA mutation rate': 0.01,
         'base EA runs': 30,
-        'processes': -1,
+        'metaEA processes': -1,
         'tuning processes': -1
     }
     config['baseEA'] = {
