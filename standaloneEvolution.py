@@ -585,7 +585,6 @@ def setupArgs():
     parser.add_argument('--evolutions', type=int)
     parser.add_argument('--seed')
 
-
     args = parser.parse_args()
 
     return args
@@ -624,6 +623,9 @@ def main():
         writer.writerow([mean(finalAverageFitnesses)])
         writer.writerow(finalBestFitnesses)
         writer.writerow([mean(finalBestFitnesses)])
+
+    with open('{0}out.txt'.format(resultsPath), 'w') as outFile:
+        outFile.write(str(mean(finalBestFitnesses)))
 
 if __name__ == '__main__':
     args = setupArgs()

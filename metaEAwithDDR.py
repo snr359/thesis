@@ -12,6 +12,7 @@ import configparser
 import shutil
 import functools
 import pickle
+import subprocess
 
 import numpy as np
 
@@ -639,6 +640,163 @@ class GPRecombinationDecider:
         result = random.choice(tree.getAllNodesDepthLimited(self.recombinationDepth))
         return result
 
+def setupIraceFiles(directory):
+    dim = getFromConfig('experiment', 'dimensionality', 'int')
+    fitnessFunction = getFromConfig('experiment', 'fitness function')
+    convergenceTermination = getFromConfig('baseEA', 'convergence termination')
+    convergenceGenerations = getFromConfig('baseEA', 'convergence generations')
+    initRange = getFromConfig('baseEA', 'initialization range', 'int')
+    fitnessEvals = getFromConfig('baseEA', 'base ea maximum fitness evaluations')
+
+    with open(directory + '/scenario.txt', 'w') as scenarioFile:
+        scenarioFile.write('maxExperiments = 300')
+
+    with open(directory + '/parameters.txt', 'w') as parametersFile:
+        parametersFile.write(
+        'base_ea_mu   "--base_ea_mu " i (2, 100) \n \
+        base_ea_lambda  "--base_ea_lambda " i (1, 100) \n \
+        base_ea_mutation_rate "--base_ea_mutation_rate " r (0, 1) \n'
+        )
+
+    with open(directory + '/target-runner', 'w') as targetRunnerFile:
+        targetRunnerFile.write('#!/bin/bash \n \
+        EXE="python3 ../standaloneEvolution.py" \n')
+        targetRunnerFile.write('FIXED_PARAMS="--dim {0} --directory . --fitness_function {1} --convergence_termination {2} --convergence_generations {3} --evolutions 1 --init_range {4} --base_ea_max_fitness_evals {5}" \n'.format(dim, fitnessFunction, convergenceTermination, convergenceGenerations, initRange, fitnessEvals))
+        targetRunnerFile.write(
+        'CONFIG_ID=$1 \n \
+        INSTANCE_ID=$2 \n \
+        SEED=$3 \n \
+        INSTANCE=$4 \n \
+        shift 4 || exit 1 \n \
+        CONFIG_PARAMS=$* \n \
+        \n \
+        STDOUT=c${CONFIG_ID}-${INSTANCE_ID}.stdout \n \
+        STDERR=c${CONFIG_ID}-${INSTANCE_ID}.stderr \n \
+        \n \
+        OUTPUT="out.txt" \n \
+        \n \
+        $EXE ${FIXED_PARAMS} --seed ${SEED} ${CONFIG_PARAMS} \n \
+        \n \
+        error() { \n \
+            echo "`TZ=UTC date`: error: $@" \n \
+            exit 1 \n \
+        } \n \
+        \n \
+        if [ -s "${OUTPUT}" ]; then \n \
+            COST=$(tail -n 1 ${OUTPUT} | grep -e "^[[:space:]]*[+-]\?[0-9]" | cut -f1) \n \
+            echo "$COST" \n \
+            exit 0 \n \
+        else \n \
+            error "${OUTPUT}: No such file or directory" \n \
+        fi \n ')
+
+    subprocess.run('chmod +x target-runner', cwd=directory, shell=True)
+
+
+def runSingleStandaloneInDirectory(directory):
+    iraceHome = getFromConfig('experiment', 'irace home')
+    iraceCommand = iraceHome + '/bin/irace'
+
+    output = str(subprocess.check_output(iraceCommand, cwd=directory))
+
+    output = output.split('\n')
+    tunedArgs = ''
+    for i, o in enumerate(output):
+        if '# Best configurations as commandlines (first number is the configuration ID; same order as above):' in o:
+            tunedArgs = output[i+1]
+
+    tunedArgs = tunedArgs.split(' ')
+    tunedArgs = ' '.join(tunedArgs[1:])
+
+    dim = getFromConfig('experiment', 'dimensionality')
+    fitnessFunction = getFromConfig('experiment', 'fitness function')
+    convergenceTermination = getFromConfig('baseEA', 'convergence termination')
+    convergenceGenerations = getFromConfig('baseEA', 'convergence generations')
+    initRange = getFromConfig('baseEA', 'initialization range')
+    fitnessEvals = getFromConfig('baseEA', 'base ea maximum fitness evaluations')
+    evolutions = getFromConfig('metaEA', 'base ea runs')
+    seed = getFromConfig('experiment', 'seed')
+
+    evolutionCommand = 'python3 standaloneEvolution.py ' \
+                       '--directory {0} ' \
+                       '--dim {1} ' \
+                       '--fitness_function {2} ' \
+                       '--init_range {3} ' \
+                       '--convergence_termination {4} ' \
+                       '--convergence_generations {5} ' \
+                       '--base_ea_max_fitness_evals {6} ' \
+                       '--evolutions {7} ' \
+                       '--seed {8} ' \
+                       ' {9} '.format(directory,
+                                     dim,
+                                     fitnessFunction,
+                                     initRange,
+                                     convergenceTermination,
+                                     convergenceGenerations,
+                                     fitnessEvals,
+                                     evolutions,
+                                     seed,
+                                     tunedArgs)
+
+    subprocess.run(evolutionCommand)
+
+    with open(directory + '/out.txt') as out:
+        readOut = out.read()
+        readOut = readOut.split('\n')
+        finalMeanAverageFitness = float(readOut[-2])
+        finalMeanBestFitness = float(readOut[-1])
+
+    return finalMeanAverageFitness, finalMeanBestFitness
+
+
+def runStandaloneEvolution(GPPopulation):
+    directories = []
+
+    for i in range(len(GPPopulation)):
+        subDirectory = './{0}'.format(i)
+        if os.path.exists(subDirectory):
+            shutil.rmtree(subDirectory)
+        os.makedirs(subDirectory)
+
+        setupIraceFiles(subDirectory)
+        psFilename = subDirectory + '/ps'
+        ssFilename = subDirectory + '/ss'
+
+        GPPopulation[i].parentSelectionFunction.saveToDict(psFilename)
+        GPPopulation[i].survivalSelectionFunction.saveToDict(ssFilename)
+
+        # the tuner requires an instances directory with at least one instance in it
+        instancesPath = subDirectory + '/Instances'
+        os.makedirs(instancesPath)
+        with open(instancesPath + '/blank.txt', 'w') as blank:
+            blank.write('blank')
+
+        directories.append(subDirectory)
+
+    processes = getFromConfig('metaEA', 'tuning processes', 'int')
+
+    if processes != 1:
+        if processes == -1:
+            processingPool = multiprocessing.Pool()
+        else:
+            processingPool = multiprocessing.Pool(processes=processes)
+
+        results = processingPool.map(runSingleStandaloneInDirectory, directories)
+
+    else:
+        results = []
+        for d in directories:
+            results.append(runSingleStandaloneInDirectory(d))
+
+    for i, r in enumerate(results):
+        finalMeanAverageFitness, finalMeanBestFitness = r
+        GPPopulation[i].averageFitness = finalMeanAverageFitness
+        GPPopulation[i].bestFitness = finalMeanBestFitness
+
+    for d in directories:
+        shutil.rmtree(d)
+
+
 def metaEAoneRun(runNum):
     # runs the meta EA for one run
 
@@ -653,7 +811,10 @@ def metaEAoneRun(runNum):
 
     GPmutationRate = getFromConfig('metaEA', 'metaEA mutation rate', 'float')
 
-    numFinalEARuns = getFromConfig('metaEA', 'base EA runs', 'int') #TODO:make this more configurable
+    numFinalEARuns = getFromConfig('metaEA', 'base EA runs', 'int')
+
+    useIraceTuning = getFromConfig('experiment', 'use irace tuning')
+    iraceHome = getFromConfig('experiment', 'irace home')
 
     # initialize the recombination decider if we are using one
     if DDREnabled:
@@ -666,14 +827,22 @@ def metaEAoneRun(runNum):
 
     # initialize the subpopulations
     GPPopulation = []
+    toBeEvaluated = []
     for i in range(GPMu):
         newSubPop = subPopulation()
         newSubPop.parentSelectionFunction = GPTree()
         newSubPop.parentSelectionFunction.growRoot(initialGPDepthLimit)
         newSubPop.survivalSelectionFunction = GPTree()
         newSubPop.survivalSelectionFunction.growRoot(initialGPDepthLimit)
-        newSubPop.runEvolution()
+        if useIraceTuning:
+            toBeEvaluated.append(newSubPop)
+        else:
+            newSubPop.runEvolution()
         GPPopulation.append(newSubPop)
+
+    if useIraceTuning:
+        runStandaloneEvolution(toBeEvaluated)
+        toBeEvaluated = []
 
     # update the recombination decider (if we have one), and record the new recombination depth
     if recombinationDecider is not None:
@@ -697,10 +866,17 @@ def metaEAoneRun(runNum):
             # recombination/mutation
             newChild = parent1.recombine(parent2, GPmutationRate, recombinationDecider)
             # run evolution with this child
-            newChild.runEvolution()
+            if useIraceTuning:
+                toBeEvaluated.append(newChild)
+            else:
+                newChild.runEvolution()
             GPEvals += 1
             # add to the population
             children.append(newChild)
+
+        if useIraceTuning:
+            runStandaloneEvolution(toBeEvaluated)
+            toBeEvaluated = []
 
         # population merging
         GPPopulation += children
@@ -874,7 +1050,9 @@ def generateDefaultConfig(filePath):
         'dimensionality': 30,
         'fitness function': 'rosenbrock_moderate_uniform_noise',
         'GP initialization depth limit': 3,
-        'seed': 'time'
+        'seed': 'time',
+        'use irace tuning': True,
+        'irace home': '~/R/x86_64-pc-linux-gnu-library/3.2/irace/'
     }
     config['DDR'] = {
         'DDR enabled': True,
@@ -891,7 +1069,8 @@ def generateDefaultConfig(filePath):
         'metaEA GP tree initialization depth limit': 3,
         'metaEA mutation rate': 0.01,
         'base EA runs': 30,
-        'processes': -1
+        'processes': -1,
+        'tuning processes': -1
     }
     config['baseEA'] = {
         'initialization range': 10,
@@ -948,7 +1127,7 @@ if __name__ == "__main__":
     startTime = time.time()
 
     # seed RNGs
-    seed = getFromConfig('experiment', 'seed', 'int')
+    seed = getFromConfig('experiment', 'seed')
     try:
         seed = int(seed)
     except ValueError:
