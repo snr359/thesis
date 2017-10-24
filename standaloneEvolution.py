@@ -617,7 +617,7 @@ def main():
         finalAverageFitnesses.append(subPop.averageFitness)
         finalBestFitnesses.append(subPop.bestFitness)
 
-    with open('{0}finalFitnesses'.format(resultsPath), 'w') as finalResultsFile:
+    with open('{0}finalFitnesses.txt'.format(resultsPath), 'w') as finalResultsFile:
         writer = csv.writer(finalResultsFile)
         writer.writerow(finalAverageFitnesses)
         writer.writerow([mean(finalAverageFitnesses)])

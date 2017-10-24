@@ -673,7 +673,7 @@ def setupIraceFiles(directory):
         STDOUT=c${CONFIG_ID}-${INSTANCE_ID}.stdout \n \
         STDERR=c${CONFIG_ID}-${INSTANCE_ID}.stderr \n \
         \n \
-        OUTPUT="out.txt" \n \
+        OUTPUT="results/out.txt" \n \
         \n \
         $EXE ${FIXED_PARAMS} --seed ${SEED} ${CONFIG_PARAMS} \n \
         \n \
@@ -697,16 +697,21 @@ def runSingleStandaloneInDirectory(directory):
     iraceHome = getFromConfig('experiment', 'irace home')
     iraceCommand = iraceHome + '/bin/irace'
 
-    output = str(subprocess.check_output(iraceCommand, cwd=directory))
+    output = subprocess.check_output(iraceCommand, cwd=directory).decode('utf-8')
 
-    output = output.split('\n')
+    output = output.splitlines()
     tunedArgs = ''
     for i, o in enumerate(output):
         if '# Best configurations as commandlines (first number is the configuration ID; same order as above):' in o:
             tunedArgs = output[i+1]
+            break
 
     tunedArgs = tunedArgs.split(' ')
-    tunedArgs = ' '.join(tunedArgs[1:])
+
+    # get rid of leading number and spaces
+    tunedArgs = tunedArgs[1:]
+    while tunedArgs[0] == '':
+        tunedArgs = tunedArgs[1:]
 
     dim = getFromConfig('experiment', 'dimensionality')
     fitnessFunction = getFromConfig('experiment', 'fitness function')
@@ -717,33 +722,34 @@ def runSingleStandaloneInDirectory(directory):
     evolutions = getFromConfig('metaEA', 'base ea runs')
     seed = getFromConfig('experiment', 'seed')
 
-    evolutionCommand = 'python3 standaloneEvolution.py ' \
-                       '--directory {0} ' \
-                       '--dim {1} ' \
-                       '--fitness_function {2} ' \
-                       '--init_range {3} ' \
-                       '--convergence_termination {4} ' \
-                       '--convergence_generations {5} ' \
-                       '--base_ea_max_fitness_evals {6} ' \
-                       '--evolutions {7} ' \
-                       '--seed {8} ' \
-                       ' {9} '.format(directory,
-                                     dim,
-                                     fitnessFunction,
-                                     initRange,
-                                     convergenceTermination,
-                                     convergenceGenerations,
-                                     fitnessEvals,
-                                     evolutions,
-                                     seed,
-                                     tunedArgs)
+    evolutionCommand = ['python3',
+                        'standaloneEvolution.py',
+                        '--directory',
+                        directory,
+                        '--dim',
+                        dim,
+                        '--fitness_function',
+                        fitnessFunction,
+                        '--init_range',
+                        initRange,
+                        '--convergence_termination',
+                        convergenceTermination,
+                        '--convergence_generations',
+                        convergenceGenerations,
+                        '--base_ea_max_fitness_evals',
+                        fitnessEvals,
+                        '--evolutions',
+                        evolutions,
+                        '--seed',
+                        seed
+                        ] + tunedArgs
 
     subprocess.run(evolutionCommand)
 
-    with open(directory + '/out.txt') as out:
+    with open(directory + '/results/finalFitnesses.txt') as out:
         readOut = out.read()
-        readOut = readOut.split('\n')
-        finalMeanAverageFitness = float(readOut[-2])
+        readOut = readOut.splitlines()
+        finalMeanAverageFitness = float(readOut[-3])
         finalMeanBestFitness = float(readOut[-1])
 
     return finalMeanAverageFitness, finalMeanBestFitness
