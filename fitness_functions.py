@@ -39,6 +39,10 @@ def get_fitness(x, function_name):
     elif function_name == 'hierarchical_if_and_only_if':
         fitness, _ = hiff(x)
         return fitness
+    elif function_name == 'bbob_rastrigin':
+        val = bbob_rastrigin(x)
+        fitness = -1 * val
+        return fitness
 
     # base case: function_name not found
     else:
@@ -67,6 +71,20 @@ def get_optimum(x, function_name):
             n = n//2
             d += 1
         return fitness
+
+# BBOB FUNCTIONS
+
+def bbob_rastrigin(x):
+    if not hasattr(bbob_rastrigin, 'fun'):
+        import cocoex
+        dim = len(x)
+        suite = cocoex.Suite('bbob',
+                             'year:2017',
+                             'dimensions: {0} function_indices: 15 instance_indices: 1'.format(dim))
+        fun = next(suite)
+        bbob_rastrigin.fun = fun
+
+    return bbob_rastrigin.fun(x)
 
 # NOISY FUNCTIONS
 

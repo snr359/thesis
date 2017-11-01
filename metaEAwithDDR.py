@@ -819,7 +819,7 @@ def metaEAoneRun(runNum):
 
     numFinalEARuns = getFromConfig('metaEA', 'base EA runs', 'int')
 
-    useIraceTuning = getFromConfig('experiment', 'use irace tuning')
+    useIraceTuning = getFromConfig('experiment', 'use irace tuning', 'bool')
     iraceHome = getFromConfig('experiment', 'irace home')
 
     # initialize the recombination decider if we are using one
