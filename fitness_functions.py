@@ -81,8 +81,9 @@ def bbob_rastrigin(x):
         suite = cocoex.Suite('bbob',
                              'year:2017',
                              'dimensions: {0} function_indices: 15 instance_indices: 1'.format(dim))
-        fun = next(suite)
-        bbob_rastrigin.fun = fun
+        for fun in suite:
+            bbob_rastrigin.fun = fun
+            break
 
     return bbob_rastrigin.fun(x)
 

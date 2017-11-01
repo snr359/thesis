@@ -63,7 +63,8 @@ class popi:
     def randomize(self, initialRange, dim):
         fitness_function = args.fitness_function
         if fitness_function in ['rosenbrock_moderate_uniform_noise',
-                                'rastrigin_moderate_uniform_noise']:
+                                'rastrigin_moderate_uniform_noise',
+                                'bbob_rastrigin']:
             self.dataType = 'float'
         elif fitness_function in ['trap',
                                   'deceptive_trap',
