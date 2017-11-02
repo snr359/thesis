@@ -691,7 +691,10 @@ def setupIraceFiles(directory):
             error "${OUTPUT}: No such file or directory" \n \
         fi \n ')
 
-    subprocess.run('chmod +x target-runner', cwd=directory, shell=True)
+    if sys.version_info >= (3, 5):
+        subprocess.run(['chmod +x target-runner'], cwd=directory, shell=True)
+    else:
+        subprocess.check_output(['chmod +x target-runner'], cwd=directory, shell=True)
 
 
 def runSingleStandaloneInDirectory(directory):
@@ -745,7 +748,10 @@ def runSingleStandaloneInDirectory(directory):
                         seed
                         ] + tunedArgs
 
-    subprocess.run(evolutionCommand)
+    if sys.version_info >= (3, 5):
+        subprocess.run(evolutionCommand)
+    else:
+        subprocess.call(evolutionCommand)
 
     with open(directory + '/results/finalFitnesses.txt') as out:
         readOut = out.read()
